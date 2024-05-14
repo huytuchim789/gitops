@@ -19,7 +19,7 @@ pipeline {
             steps {
                 git credentialsId: 'github',
                 url: 'https://github.com/huytuchim789/gitops.git',
-                branch: 'master'
+                branch: 'dev'
             }
         }
         stage('Build Docker Image') {
@@ -41,13 +41,34 @@ pipeline {
                 }
             }
         }
-        // stage('Delete Docker Image') {
-        //     steps {
-        //         script {
-        //             sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG}"
-        //             sh "docker rmi ${IMAGE_NAME}:latest"
-        //         }
-        //     }
-        // }
+        stage('Delete Docker Image') {
+            steps {
+                script {
+                    sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker rmi ${IMAGE_NAME}:latest"
+                }
+            }
+        }
+        stage('Updating Kubernetes deployment file') {
+            steps {
+                sh 'cat deployment.yml'
+                sh "sed -i 's/${APP_NAME}.*/${APP_NAME}:${IMAGE_TAG}/g' deployment.yml"
+                sh 'cat deployment.yml'
+            }
+        }
+        stage('Push the changed deployment file to Git') {
+            steps {
+                script {
+                    sh """
+                    git config --global user.name "huytuchim789"
+                    git config --global user.email "tranhuytu242000@gmail.com"
+                    git add deployment.yml
+                    git commit -m 'Updated the deployment file' """
+                    withCredentials([usernamePassword(credentialsId: 'github', passwordVariable: 'pass', usernameVariable: 'user')]) {
+                        sh "git push http://$user:$pass@github.com/kunchalavikram1427/gitops-demo.git dev"
+                    }
+                }
+            }
+        }
     }
 }
